@@ -30,11 +30,3 @@ jobs:
         with:
           args: -p 1 release --rm-dist --timeout 60m0s
           version: latest
-
-      - name: Create GH Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            dist/*.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.PULUMI_BOT_TOKEN }}

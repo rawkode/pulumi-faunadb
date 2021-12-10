@@ -3,18 +3,25 @@ package provider
 import (
 	"context"
 	"fmt"
-	"math/rand"
-	"time"
 
 	"github.com/pulumi/pulumi/pkg/v3/resource/provider"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource/plugin"
+	"github.com/rawkode/pulumi-faunadb/provider/pkg/provider/database"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	pulumirpc "github.com/pulumi/pulumi/sdk/v3/proto/go"
 
 	pbempty "github.com/golang/protobuf/ptypes/empty"
+)
+
+type ResourceType string
+
+const (
+	Database   ResourceType = "faunadb:database:Database"
+	Collection ResourceType = "faunadb:database:Collection"
+	Record     ResourceType = "faunadb:database:Record"
 )
 
 type faunadbProvider struct {
@@ -77,19 +84,18 @@ func (k *faunadbProvider) StreamInvoke(req *pulumirpc.InvokeRequest, server pulu
 // the provider inputs are using for detecting and rendering diffs.
 func (k *faunadbProvider) Check(ctx context.Context, req *pulumirpc.CheckRequest) (*pulumirpc.CheckResponse, error) {
 	urn := resource.URN(req.GetUrn())
-	ty := urn.Type()
-	if ty != "faunadb:index:Random" {
-		return nil, fmt.Errorf("Unknown resource type '%s'", ty)
+	if IsValidResourceType(urn.Type().String()) {
+		return nil, fmt.Errorf("unknown resource type '%s'", urn.Type())
 	}
+
 	return &pulumirpc.CheckResponse{Inputs: req.News, Failures: nil}, nil
 }
 
 // Diff checks what impacts a hypothetical update will have on the resource's properties.
 func (k *faunadbProvider) Diff(ctx context.Context, req *pulumirpc.DiffRequest) (*pulumirpc.DiffResponse, error) {
 	urn := resource.URN(req.GetUrn())
-	ty := urn.Type()
-	if ty != "faunadb:index:Random" {
-		return nil, fmt.Errorf("Unknown resource type '%s'", ty)
+	if IsValidResourceType(urn.Type().String()) {
+		return nil, fmt.Errorf("unknown resource type '%s'", urn.Type())
 	}
 
 	olds, err := plugin.UnmarshalProperties(req.GetOlds(), plugin.MarshalOptions{KeepUnknowns: true, SkipNulls: true})
@@ -117,59 +123,34 @@ func (k *faunadbProvider) Diff(ctx context.Context, req *pulumirpc.DiffRequest) 
 // Create allocates a new instance of the provided resource and returns its unique ID afterwards.
 func (k *faunadbProvider) Create(ctx context.Context, req *pulumirpc.CreateRequest) (*pulumirpc.CreateResponse, error) {
 	urn := resource.URN(req.GetUrn())
-	ty := urn.Type()
-	if ty != "faunadb:index:Random" {
-		return nil, fmt.Errorf("Unknown resource type '%s'", ty)
+
+	if IsValidResourceType(urn.Type().String()) {
+		return nil, fmt.Errorf("unknown resource type '%s'", urn.Type())
 	}
 
-	inputs, err := plugin.UnmarshalProperties(req.GetProperties(), plugin.MarshalOptions{KeepUnknowns: true, SkipNulls: true})
-	if err != nil {
-		return nil, err
+	switch urn.Type() {
+	case "faunadb:database:Database":
+		return database.CreateDatabase(ctx, req)
+	default:
+		return nil, fmt.Errorf("valid but unhandled resource type '%s'", urn.Type())
 	}
-
-	if !inputs["length"].IsNumber() {
-		return nil, fmt.Errorf("Expected input property 'length' of type 'number' but got '%s", inputs["length"].TypeString())
-	}
-
-	n := int(inputs["length"].NumberValue())
-
-	// Actually "create" the random number
-	result := makeRandom(n)
-
-	outputs := map[string]interface{}{
-		"length": n,
-		"result": result,
-	}
-
-	outputProperties, err := plugin.MarshalProperties(
-		resource.NewPropertyMapFromMap(outputs),
-		plugin.MarshalOptions{KeepUnknowns: true, SkipNulls: true},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &pulumirpc.CreateResponse{
-		Id:         result,
-		Properties: outputProperties,
-	}, nil
 }
 
 // Read the current live state associated with a resource.
 func (k *faunadbProvider) Read(ctx context.Context, req *pulumirpc.ReadRequest) (*pulumirpc.ReadResponse, error) {
 	urn := resource.URN(req.GetUrn())
-	ty := urn.Type()
-	if ty != "faunadb:index:Random" {
-		return nil, fmt.Errorf("Unknown resource type '%s'", ty)
+	if IsValidResourceType(urn.Type().String()) {
+		return nil, fmt.Errorf("unknown resource type '%s'", urn.Type())
 	}
+
 	return nil, status.Error(codes.Unimplemented, "Read is not yet implemented for 'faunadb:index:Random'")
 }
 
 // Update updates an existing resource with new values.
 func (k *faunadbProvider) Update(ctx context.Context, req *pulumirpc.UpdateRequest) (*pulumirpc.UpdateResponse, error) {
 	urn := resource.URN(req.GetUrn())
-	ty := urn.Type()
-	if ty != "faunadb:index:Random" {
-		return nil, fmt.Errorf("Unknown resource type '%s'", ty)
+	if IsValidResourceType(urn.Type().String()) {
+		return nil, fmt.Errorf("unknown resource type '%s'", urn.Type())
 	}
 
 	// Our Random resource will never be updated - if there is a diff, it will be a replacement.
@@ -180,9 +161,8 @@ func (k *faunadbProvider) Update(ctx context.Context, req *pulumirpc.UpdateReque
 // to still exist.
 func (k *faunadbProvider) Delete(ctx context.Context, req *pulumirpc.DeleteRequest) (*pbempty.Empty, error) {
 	urn := resource.URN(req.GetUrn())
-	ty := urn.Type()
-	if ty != "faunadb:index:Random" {
-		return nil, fmt.Errorf("Unknown resource type '%s'", ty)
+	if IsValidResourceType(urn.Type().String()) {
+		return nil, fmt.Errorf("unknown resource type '%s'", urn.Type())
 	}
 
 	// Note that for our Random resource, we don't have to do anything on Delete.
@@ -209,15 +189,4 @@ func (k *faunadbProvider) GetSchema(ctx context.Context, req *pulumirpc.GetSchem
 func (k *faunadbProvider) Cancel(context.Context, *pbempty.Empty) (*pbempty.Empty, error) {
 	// TODO
 	return &pbempty.Empty{}, nil
-}
-
-func makeRandom(length int) string {
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-	charset := []rune("abcdefghijklmnopqrstuvwfaunadbABCDEFGHIJKLMNOPQRSTUVWfaunadb0123456789")
-
-	result := make([]rune, length)
-	for i := range result {
-		result[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(result)
 }

@@ -2,20 +2,27 @@
 name: "faunadb"
 version: 0.0.1
 resources:
-  "faunadb:index:Random":
+  "faunadb:database:Database":
     properties:
-      length:
-        type: integer
-      result:
+      name:
+        type: string
+      url:
         type: string
     required:
-    - length
-    - result
+      - name
+      - url
     inputProperties:
-      length:
-        type: integer
+      name:
+        type: string
+      region:
+        type: string
+        enum:
+          - Classic
+          - EU
+          - US
     requiredInputs:
-    - length
+      - name
+      - region
 language:
   csharp:
     packageReferences:

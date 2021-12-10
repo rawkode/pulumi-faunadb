@@ -1,0 +1,31 @@
+---
+name: "faunadb"
+version: 0.0.1
+resources:
+  "faunadb:index:Random":
+    properties:
+      length:
+        type: integer
+      result:
+        type: string
+    required:
+    - length
+    - result
+    inputProperties:
+      length:
+        type: integer
+    requiredInputs:
+    - length
+language:
+  csharp:
+    packageReferences:
+      Pulumi: 3.*
+  go:
+    generateResourceContainerTypes: true
+    importBasePath: "github.com/rawkode/pulumi-faunadb/sdk/go/faunadb"
+  nodejs:
+    dependencies:
+      "@pulumi/pulumi": "^3.0.0"
+  python:
+    requires:
+      pulumi: ">=3.0.0,<4.0.0"
